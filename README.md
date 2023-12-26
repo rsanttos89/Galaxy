@@ -33,7 +33,7 @@ Este é um projeto de código aberto, e contribuições são bem-vindas. Sinta-s
 
 ## Autor
 
-[Seu Nome]
+[RSANTTOS]
 
 ## Licença
 
