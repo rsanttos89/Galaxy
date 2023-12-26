@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galaxy Game</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            overflow: hidden;
+            background-color: black;
+            color: white;
+            text-align: center;
+            padding-top: 20px;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #restartButton {
+            padding: 10px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="restartButton" onclick="restartGame()">Reiniciar Jogo</div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // Definindo as dimensões do canvas
+        canvas.width = 600;
+        canvas.height = window.innerHeight;
+
+        // Variáveis de jogo
+        let score = 0;
+        let gameOver = false;
+
+        // Criando a nave do jogador
+        const player = {
+            x: canvas.width / 2,
+            y: canvas.height - 30,
+            width: 50,
+            height: 50,
+            speed: 5,
+            image: new Image()
+        };
+
+        // Carregar a imagem da nave do jogador
+        player.image.src = "https://static.vecteezy.com/system/resources/previews/016/778/825/non_2x/spaceship-alien-galaxy-fleet-free-png.png";
+
+        // Criando array para armazenar os alvos
+        const targets = [];
+
+        // Criando array para armazenar os tiros
+        const bullets = [];
+
+        // Controlando o movimento contínuo
+        let moveLeft = false;
+        let moveRight = false;
+
+        // Velocidade dos alvos
+        const targetSpeed = 1.5;
+
+        // Constante para o intervalo mínimo entre tiros (em milissegundos)
+        const shootInterval = 500;
+
+        // Variável para controlar o tempo desde o último tiro
+        let lastShootTime = 0;
+
+        // Tamanho dos alvos
+        const targetSize = 50;
+
+        // Função para desenhar o jogador
+        function drawPlayer() {
+            ctx.drawImage(player.image, player.x - player.width / 2, player.y - player.height / 2, player.width, player.height);
+        }
+
+        // Função para desenhar os alvos
+        function drawTargets() {
+            targets.forEach(target => {
+                if (target.exploding) {
+                    drawExplosion(target);
+                } else {
+                    ctx.fillStyle = target.color;
+                    ctx.fillRect(target.x - targetSize / 2, target.y - targetSize / 2, targetSize, targetSize);
+                }
+            });
+        }
+
+        // Função para desenhar os tiros
+        function drawBullets() {
+            ctx.fillStyle = "red";
+            bullets.forEach(bullet => {
+                ctx.fillRect(bullet.x - 2, bullet.y - 10, 4, 10);
+            });
+        }
+
+        // Função para desenhar a explosão
+        function drawExplosion(target) {
+            const explosionSize = targetSize / 3;
+
+            for (let i = 0; i < 6; i++) {
+                ctx.fillStyle = target.color;
+                ctx.fillRect(target.x - explosionSize / 2, target.y - explosionSize / 2, explosionSize, explosionSize);
+                ctx.rotate((Math.PI / 180) * 60); // Rotacionar em 60 graus
+            }
+        }
+
+        // Função para atualizar a posição dos alvos
+        function updateTargets() {
+            if (gameOver) return;
+
+            targets.forEach(target => {
+                if (target.exploding) {
+                    target.explosionTime -= 1;
+
+                    if (target.explosionTime <= 0) {
+                        targets.splice(targets.indexOf(target), 1);
+                    }
+                } else {
+                    target.y += targetSpeed;
+
+                    // Verificar se um tiro atingiu o alvo
+                    bullets.forEach(bullet => {
+                        if (
+                            bullet.x >= target.x - targetSize / 2 &&
+                            bullet.x <= target.x + targetSize / 2 &&
+                            bullet.y >= target.y - targetSize / 2 &&
+                            bullet.y <= target.y + targetSize / 2
+                        ) {
+                            // Remover o alvo atingido
+                            target.exploding = true;
+                            target.explosionTime = 6; // Número de quadros de explosão
+                            score += target.points;
+                            bullets.splice(bullets.indexOf(bullet), 1);
+                        }
+                    });
+
+                    // Verificar se um alvo atingiu o chão
+                    if (target.y + targetSize / 2 > canvas.height) {
+                        gameOver = true;
+                        alert("Fim de jogo! Sua pontuação: " + score);
+                    }
+                }
+            });
+
+            // Adicionar novos alvos aleatoriamente
+            if (Math.random() < 0.02) {
+                const colors = ["blue", "red", "yellow"];
+                const points = [5, 10, 15];
+                const randomIndex = Math.floor(Math.random() * colors.length);
+
+                const newTarget = {
+                    x: Math.random() * canvas.width,
+                    y: 0,
+                    color: colors[randomIndex],
+                    points: points[randomIndex],
+                    exploding: false,
+                    explosionTime: 0
+                };
+                targets.push(newTarget);
+            }
+
+            // Remover alvos que saíram da tela
+            targets.filter(target => target.y < canvas.height);
+        }
+
+        // Função para atualizar a posição dos tiros
+        function updateBullets() {
+            bullets.forEach(bullet => {
+                bullet.y -= 5;
+
+                // Remover tiros que saíram da tela
+                if (bullet.y < 0) {
+                    bullets.splice(bullets.indexOf(bullet), 1);
+                }
+            });
+        }
+
+        // Função principal de atualização
+        function update() {
+            if (gameOver) return;
+
+            // Atualizar a posição da nave com base no movimento
+            if (moveLeft && player.x > player.width / 2) {
+                player.x -= player.speed;
+            }
+
+            if (moveRight && player.x < canvas.width - player.width / 2) {
+                player.x += player.speed;
+            }
+
+            // Verificar se é permitido atirar com base no intervalo de tempo
+            const currentTime = new Date().getTime();
+            if (currentTime - lastShootTime > shootInterval) {
+                // Atirar
+                bullets.push({ x: player.x, y: player.y });
+                lastShootTime = currentTime; // Atualizar o tempo do último tiro
+            }
+
+            updateTargets();
+            updateBullets();
+            drawPlayer();
+            drawTargets();
+            drawBullets();
+
+            // Exibir pontuação na tela
+            ctx.font = "20px Arial";
+            ctx.fillText("Pontuação: " + score, 10, 30);
+        }
+
+        // Loop de animação
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            update();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Eventos de tecla pressionada e solta
+        window.addEventListener("keydown", function(event) {
+            if (event.key === "ArrowLeft") {
+                moveLeft = true;
+            } else if (event.key === "ArrowRight") {
+                moveRight = true;
+            }
+        });
+
+        window.addEventListener("keyup", function(event) {
+            if (event.key === "ArrowLeft") {
+                moveLeft = false;
+            } else if (event.key === "ArrowRight") {
+                moveRight = false;
+            }
+        });
+
+        // Função para reiniciar o jogo
+        function restartGame() {
+            score = 0;
+            gameOver = false;
+            targets.length = 0;
+            bullets.length = 0;
+        }
+
+        // Iniciar o loop de animação
+        gameLoop();
+    </script>
+</body>
+</html>
